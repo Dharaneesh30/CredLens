@@ -1,109 +1,117 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
 function App() {
-  const [images, setImages] = useState([]);
-  const [summary, setSummary] = useState("Loading EDA results...");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    age: "",
+    job: "",
+    housing: "",
+    saving: "",
+    checking: "",
+    credit: "",
+    duration: "",
+    purpose: "",
+    sex: "",
+    other: ""
+  });
 
-  useEffect(() => {
-    fetch("http://127.0.0.1:5000/eda-results")
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("Failed to fetch data from backend");
-        }
-        return res.json();
-      })
-      .then((data) => {
-        setImages(data.images || []);
-        setSummary(data.summary || "EDA Completed");
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("❌ Backend not running or API error");
-        setLoading(false);
+  const [result, setResult] = useState(null);
+
+  // Model comparison data
+  const modelData = [
+    { name: "Logistic Regression", Accuracy: 1.0, ROCAUC: 1.0 },
+    { name: "Random Forest", Accuracy: 1.0, ROCAUC: 1.0 },
+    { name: "XGBoost", Accuracy: 1.0, ROCAUC: 1.0 },
+    { name: "Gradient Boosting", Accuracy: 1.0, ROCAUC: 1.0 }
+  ];
+
+  // Handle input change
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // Handle submit
+  const handleSubmit = async () => {
+    const inputArray = [
+      Number(formData.age),
+      Number(formData.job),
+      Number(formData.housing),
+      Number(formData.saving),
+      Number(formData.checking),
+      Number(formData.credit),
+      Number(formData.duration),
+      Number(formData.purpose),
+      Number(formData.sex),
+      Number(formData.other)
+    ];
+
+    try {
+      const response = await fetch("http://127.0.0.1:5000/predict", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ input: inputArray })
       });
-  }, []);
+
+      const data = await response.json();
+      setResult(data);
+
+    } catch (error) {
+      console.error(error);
+      alert("❌ Backend not running!");
+    }
+  };
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>📊 CredLens EDA Dashboard</h1>
+    <div style={{ textAlign: "center", padding: "20px" }}>
+      <h1>💳 CredLens Credit Risk Predictor</h1>
 
-      {loading && <p style={styles.loading}>⏳ Loading...</p>}
-      {error && <p style={styles.error}>{error}</p>}
+      {/* INPUT FORM */}
+      {Object.keys(formData).map((key) => (
+        <div key={key} style={{ margin: "10px" }}>
+          <input
+            type="number"
+            name={key}
+            placeholder={key}
+            value={formData[key]}
+            onChange={handleChange}
+          />
+        </div>
+      ))}
 
-      {!loading && !error && (
-        <>
-          <h3 style={styles.summary}>{summary}</h3>
+      <button onClick={handleSubmit}>Predict</button>
 
-          <div style={styles.grid}>
-            {images.length > 0 ? (
-              images.map((img, index) => (
-                <div key={index} style={styles.card}>
-                  <img
-                    src={`http://127.0.0.1:5000/images/${img}`}
-                    alt={img}
-                    style={styles.image}
-                  />
-                  <p style={styles.caption}>{img}</p>
-                </div>
-              ))
-            ) : (
-              <p>No images found</p>
-            )}
-          </div>
-        </>
+      {/* RESULT */}
+      {result && (
+        <div style={{ marginTop: "20px" }}>
+          <h2>Result:</h2>
+          <p>Prediction: {result.prediction}</p>
+          <p>Probability: {result.probability}</p>
+
+          {result.prediction === 1 ? (
+            <h3 style={{ color: "red" }}>⚠️ High Risk</h3>
+          ) : (
+            <h3 style={{ color: "green" }}>✅ Low Risk</h3>
+          )}
+        </div>
       )}
+
+      {/* MODEL COMPARISON CHART */}
+      <div style={{ marginTop: "40px" }}>
+        <h2>Model Performance Comparison</h2>
+        <BarChart width={600} height={300} data={modelData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Bar dataKey="Accuracy" fill="#8884d8" />
+          <Bar dataKey="ROCAUC" fill="#82ca9d" />
+        </BarChart>
+      </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    textAlign: "center",
-    padding: "20px",
-    fontFamily: "Arial, sans-serif",
-    backgroundColor: "#f4f6f9",
-    minHeight: "100vh",
-  },
-  title: {
-    color: "#2c3e50",
-    marginBottom: "20px",
-  },
-  summary: {
-    color: "#27ae60",
-    marginBottom: "20px",
-  },
-  loading: {
-    fontSize: "18px",
-  },
-  error: {
-    color: "red",
-    fontWeight: "bold",
-  },
-  grid: {
-    display: "flex",
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  card: {
-    backgroundColor: "white",
-    padding: "15px",
-    margin: "15px",
-    borderRadius: "12px",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-    width: "420px",
-  },
-  image: {
-    width: "100%",
-    borderRadius: "8px",
-  },
-  caption: {
-    marginTop: "10px",
-    fontSize: "14px",
-    color: "#555",
-  },
-};
 
 export default App;
