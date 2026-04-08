@@ -1,16 +1,31 @@
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter
+from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
 
+from ..services.metrics_service import metrics_service
 from ..services.model_service import model_service
 
 
-prediction_bp = Blueprint("prediction", __name__)
+prediction_router = APIRouter()
 
 
-@prediction_bp.route("/predict", methods=["POST"])
-def predict():
+class PredictRequest(BaseModel):
+    input: list[float] = Field(..., min_length=10, max_length=10)
+
+
+@prediction_router.post("/predict")
+def predict(payload: PredictRequest):
     try:
-        payload = request.get_json(silent=True) or {}
-        result = model_service.predict(payload.get("input"))
-        return jsonify(result)
+        result = model_service.predict(payload.input)
+        metrics_service.incr("predict_requests")
+        if result.get("decision") == "Approve":
+            metrics_service.incr("predict_decision_approve")
+        elif result.get("decision") == "Conditional Approval":
+            metrics_service.incr("predict_decision_conditional")
+        elif result.get("decision") == "Manual Review":
+            metrics_service.incr("predict_decision_manual_review")
+        else:
+            metrics_service.incr("predict_decision_review_reject")
+        return result
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
+        return JSONResponse(status_code=400, content={"error": str(exc)})

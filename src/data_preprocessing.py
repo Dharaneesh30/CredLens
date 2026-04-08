@@ -2,6 +2,8 @@
 # CredLens - Data Preprocessing Module
 # =========================================
 
+import os
+
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -42,11 +44,23 @@ def handle_missing_values(df):
 # 3. CREATE TARGET VARIABLE (IMPORTANT)
 # =========================================
 def create_target(df):
+    target_col = os.getenv("CREDLENS_TARGET_COLUMN", "Risk")
 
-    # Creating Risk column based on Credit amount
-    df["Risk"] = (df["Credit amount"] > 5000).astype(int)
+    # Preferred path: use a real default/repayment outcome column from dataset.
+    if target_col in df.columns:
+        return df
 
-    return df
+    # Optional compatibility mode. Disabled by default to prevent target leakage.
+    allow_synthetic = os.getenv("CREDLENS_ALLOW_SYNTHETIC_TARGET", "false").lower() == "true"
+    if allow_synthetic:
+        df[target_col] = (df["Credit amount"] > 5000).astype(int)
+        return df
+
+    raise ValueError(
+        "Target column not found. Set a real outcome label column via "
+        "CREDLENS_TARGET_COLUMN or explicitly enable CREDLENS_ALLOW_SYNTHETIC_TARGET=true "
+        "for non-production experimentation."
+    )
 
 
 # =========================================
@@ -67,9 +81,9 @@ def encode_data(df):
 # 5. FEATURE & TARGET SPLIT
 # =========================================
 def split_features(df):
-
-    X = df.drop("Risk", axis=1)
-    y = df["Risk"]
+    target_col = os.getenv("CREDLENS_TARGET_COLUMN", "Risk")
+    X = df.drop(target_col, axis=1)
+    y = df[target_col]
 
     return X, y
 

@@ -2,6 +2,8 @@ import React from "react";
 
 
 function ResultsSummary({ result, score, riskLevel, decision }) {
+  const finalDecision = result.decision || decision;
+  const confidence = result.confidence ?? Math.max(result.probability, 1 - result.probability);
   return (
     <section className="card metrics-card">
       <h2>Risk Assessment Results</h2>
@@ -28,18 +30,35 @@ function ResultsSummary({ result, score, riskLevel, decision }) {
           <div className="metric-value">{riskLevel}</div>
         </div>
 
-        <div className={`metric-box ${score >= 650 ? "approved" : "rejected"}`}>
+        <div className={`metric-box ${String(finalDecision).toLowerCase().includes("approve") ? "approved" : "rejected"}`}>
           <div className="metric-label">Loan Decision</div>
-          <div className="metric-value">{decision}</div>
+          <div className="metric-value">{finalDecision}</div>
         </div>
 
         <div className="metric-box">
           <div className="metric-label">Confidence</div>
           <div className="metric-value">
-            {(Math.max(result.probability, 1 - result.probability) * 100).toFixed(1)}%
+            {(confidence * 100).toFixed(1)}%
           </div>
         </div>
       </div>
+
+      {Array.isArray(result.policy_reasons) && result.policy_reasons.length > 0 && (
+        <div className="analysis-summary">
+          <h3>Policy Reasons</h3>
+          <ul>
+            {result.policy_reasons.map((item, idx) => (
+              <li key={`policy-reason-${idx}`}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {result.model_metadata && (
+        <div className="advisor-meta" style={{ marginTop: "0.8rem" }}>
+          Model: {result.model_metadata.model_name} | Version: {result.model_metadata.model_version} | Trained: {String(result.model_metadata.trained_at_utc || "unknown")}
+        </div>
+      )}
     </section>
   );
 }

@@ -138,7 +138,7 @@ function App() {
       setActiveTab("prediction");
     } catch (error) {
       console.error(error);
-      alert("❌ Could not connect to backend. Make sure the Flask server is running on port 5000.");
+      alert("❌ Could not connect to backend. Make sure the FastAPI server is running on port 5000.");
     } finally {
       setLoading(false);
     }

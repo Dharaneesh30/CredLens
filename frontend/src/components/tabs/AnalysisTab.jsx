@@ -80,6 +80,19 @@ function AnalysisTab({ analysisChartData, inputProfileData, result, analysisInsi
           ))}
         </ul>
       </div>
+
+      {Array.isArray(result.top_factors) && result.top_factors.length > 0 && (
+        <div className="analysis-summary">
+          <h3>Top Model Factors</h3>
+          <ul>
+            {result.top_factors.map((factor, index) => (
+              <li key={`factor-${index}`}>
+                <strong>{factor.feature}</strong>: {factor.reason} ({factor.impact})
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

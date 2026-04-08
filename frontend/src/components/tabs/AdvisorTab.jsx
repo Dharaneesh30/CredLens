@@ -10,7 +10,10 @@ function AdvisorTab({
   loading,
   error,
   response,
+  healthStatus,
+  history,
 }) {
+  const isOllamaDown = healthStatus?.ollama !== "ok";
   return (
     <div className="tab-content">
       <div className="chart-card advisor-card">
@@ -18,6 +21,14 @@ function AdvisorTab({
         <p className="advisor-help-text">
           Ask for approval perspective, lending rationale, key risks, and mitigation advice for this applicant.
         </p>
+        <div className="advisor-meta">
+          Backend: {healthStatus?.backend} | Model: {healthStatus?.model} | Ollama: {healthStatus?.ollama}
+        </div>
+        {isOllamaDown && (
+          <div className="alert error-alert">
+            Ollama is not reachable. Suggestions will use fallback policy rules until Ollama is online.
+          </div>
+        )}
         <form className="advisor-form" onSubmit={onSubmit}>
           <label className="advisor-field">
             <span>Ollama Model</span>
@@ -54,7 +65,59 @@ function AdvisorTab({
             <div className="advisor-meta">
               Source: {response.source} | Model: {response.model}
             </div>
-            <pre>{response.advisor_response}</pre>
+            <div className="analysis-summary">
+              <h3>Decision</h3>
+              <p>{response.advisor_response?.decision}</p>
+            </div>
+            <div className="analysis-summary">
+              <h3>Rationale</h3>
+              <ul>
+                {(response.advisor_response?.rationale || []).map((item, idx) => (
+                  <li key={`rat-${idx}`}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="analysis-summary">
+              <h3>Risks</h3>
+              <ul>
+                {(response.advisor_response?.risks || []).map((item, idx) => (
+                  <li key={`risk-${idx}`}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="analysis-summary">
+              <h3>Mitigations</h3>
+              <ul>
+                {(response.advisor_response?.mitigations || []).map((item, idx) => (
+                  <li key={`mit-${idx}`}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="analysis-summary">
+              <h3>Conditions to Approve</h3>
+              <ul>
+                {(response.advisor_response?.conditions_to_approve || []).map((item, idx) => (
+                  <li key={`cond-${idx}`}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="analysis-summary">
+              <h3>Final Perspective</h3>
+              <p>{response.advisor_response?.final_perspective}</p>
+            </div>
+          </div>
+        )}
+
+        {Array.isArray(history) && history.length > 0 && (
+          <div className="analysis-summary">
+            <h3>Recent Advisor History</h3>
+            <ul>
+              {history.slice().reverse().map((item, idx) => (
+                <li key={`hist-${idx}`}>
+                  [{item.timestamp_utc}] {item.applicant_id} - {item.decision} ({item.source})
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

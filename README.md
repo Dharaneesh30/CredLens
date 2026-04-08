@@ -8,7 +8,7 @@ The project is now split by **backend services/routes** and **frontend pages/com
 ### Backend (`backend/app`)
 
 - `main.py`: backend entrypoint
-- `__init__.py`: Flask app factory
+- `__init__.py`: FastAPI app factory
 - `config.py`: model/results/Ollama configuration
 - `routes/health.py`: API health route
 - `routes/prediction.py`: credit risk prediction route
@@ -18,7 +18,7 @@ The project is now split by **backend services/routes** and **frontend pages/com
 - `services/advisor_service.py`: Ollama + fallback advisor logic
 
 Compatibility launcher:
-- `src/api.py` still works (`python src/api.py`) and now boots the modular backend.
+- `src/api.py` still works (`python src/api.py`) and now boots the modular FastAPI backend.
 
 ### Frontend (`frontend/src`)
 
@@ -77,3 +77,46 @@ npm start
 4. The app calls `/loan-advisor` and shows Ollama response.
 
 If Ollama is unavailable, CredLens returns a rule-based fallback suggestion.
+
+## New Analytics Upgrades
+
+- Structured AI advisor response schema:
+  - `decision`, `rationale`, `risks`, `mitigations`, `conditions_to_approve`, `final_perspective`
+- Policy engine layer merged with ML output:
+  - confidence-based `Manual Review` decisioning
+  - policy reasons and conditions returned with prediction
+- Explainability hints:
+  - top factor impacts included in prediction/analysis view
+- Operational health endpoints:
+  - `/health`, `/health/model`, `/health/ollama`
+- Advisor audit logging:
+  - saved to `data/audit/advisor_history.jsonl`
+  - retrievable from `/loan-advisor/history`
+- Docker support:
+  - `docker-compose.yml` for frontend + backend + ollama
+- Leakage guard for model training:
+  - `src/data_preprocessing.py` now requires a real target label unless synthetic mode is explicitly enabled.
+
+## Security, Monitoring, and QA
+
+- API key auth (optional):
+  - `ENABLE_API_KEY_AUTH=true`
+  - `CREDLENS_API_KEY=<your-secret>`
+  - send header `x-api-key: <your-secret>`
+- Rate limiting:
+  - configurable via `RATE_LIMIT_PER_MINUTE` (default 120)
+- Monitoring endpoint:
+  - `GET /metrics`
+- CI pipeline:
+  - `.github/workflows/ci.yml` runs backend tests + frontend build/test
+- Backend API tests:
+  - `tests/test_api.py`
+
+## Training and Governance Utilities
+
+- Threshold tuning:
+  - `python src/tune_thresholds.py`
+- Fairness audit:
+  - `python src/fairness_audit.py`
+- Model metadata + calibrator generation:
+  - `python src/train_models.py`

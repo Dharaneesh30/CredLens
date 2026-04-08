@@ -1,0 +1,18 @@
+{
+  "model_name": "best_model.pkl",
+  "model_version": "bootstrap",
+  "trained_at_utc": null,
+  "feature_schema": [
+    "age",
+    "job",
+    "housing",
+    "saving",
+    "checking",
+    "credit",
+    "duration",
+    "purpose",
+    "sex",
+    "other"
+  ],
+  "notes": "Bootstrap metadata file. Regenerate with src/train_models.py"
+}

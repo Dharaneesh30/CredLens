@@ -1,5 +1,5 @@
 export const calculateCreditScore = (probability) => (
-  Math.min(850, Math.max(300, Math.round(300 + probability * 550)))
+  Math.min(850, Math.max(300, Math.round(850 - probability * 550)))
 );
 
 export const getRiskLevel = (score) => {
@@ -9,5 +9,5 @@ export const getRiskLevel = (score) => {
 };
 
 export const getLoanDecision = (score) => (
-  score >= 650 ? "Approved" : "Rejected"
+  score >= 700 ? "Approved" : score >= 620 ? "Conditional Approval" : "Review / Reject"
 );

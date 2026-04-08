@@ -1,17 +1,21 @@
-from flask import Blueprint, jsonify, send_from_directory
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 
 from ..config import RESULTS_DIR
 
 
-charts_bp = Blueprint("charts", __name__)
+charts_router = APIRouter()
 
 
-@charts_bp.route("/charts")
+@charts_router.get("/charts")
 def charts():
     images = [f.name for f in RESULTS_DIR.glob("*.png")]
-    return jsonify({"images": images})
+    return {"images": images}
 
 
-@charts_bp.route("/chart/<filename>")
+@charts_router.get("/chart/{filename}")
 def get_chart(filename):
-    return send_from_directory(str(RESULTS_DIR), filename)
+    file_path = RESULTS_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Chart not found")
+    return FileResponse(str(file_path))

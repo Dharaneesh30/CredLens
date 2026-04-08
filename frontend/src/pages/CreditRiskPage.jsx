@@ -9,7 +9,15 @@ import PredictionTab from "../components/tabs/PredictionTab";
 import TabsNav from "../components/tabs/TabsNav";
 import { edaInsights, riskDistributionData, ageDistributionData, creditAmountDistribution } from "../data/edaData";
 import { featureFields } from "../data/featureFields";
-import { fetchAdvisorSuggestion, fetchCharts, fetchPrediction } from "../services/api";
+import {
+  fetchAdvisorSuggestion,
+  fetchBackendHealth,
+  fetchAdvisorHistory,
+  fetchCharts,
+  fetchModelHealth,
+  fetchOllamaHealth,
+  fetchPrediction,
+} from "../services/api";
 import { calculateCreditScore, getLoanDecision, getRiskLevel } from "../utils/risk";
 
 
@@ -30,6 +38,12 @@ function CreditRiskPage() {
   const [advisorLoading, setAdvisorLoading] = useState(false);
   const [advisorError, setAdvisorError] = useState(null);
   const [advisorResponse, setAdvisorResponse] = useState(null);
+  const [healthStatus, setHealthStatus] = useState({
+    backend: "unknown",
+    model: "unknown",
+    ollama: "unknown",
+  });
+  const [advisorHistory, setAdvisorHistory] = useState([]);
 
   useEffect(() => {
     const loadCharts = async () => {
@@ -43,10 +57,42 @@ function CreditRiskPage() {
     loadCharts();
   }, []);
 
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const data = await fetchAdvisorHistory(15);
+        setAdvisorHistory(data.records || []);
+      } catch {
+        setAdvisorHistory([]);
+      }
+    };
+    loadHistory();
+  }, []);
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const [backend, model, ollama] = await Promise.all([
+          fetchBackendHealth(),
+          fetchModelHealth(),
+          fetchOllamaHealth(),
+        ]);
+        setHealthStatus({
+          backend: backend.status || "unknown",
+          model: model.status || "unknown",
+          ollama: ollama.status || "unknown",
+        });
+      } catch {
+        setHealthStatus({ backend: "error", model: "error", ollama: "error" });
+      }
+    };
+    checkHealth();
+  }, []);
+
   const analysisInsights = useMemo(() => {
     if (!result) return [];
     const insights = [];
-    const score = calculateCreditScore(result.probability);
+    const score = result.credit_score ?? calculateCreditScore(result.probability);
     const riskLabel = result.prediction === 1 ? "high risk" : "low risk";
     const carriesMoreRisk = result.prediction === 1
       ? "This profile is likely to be rejected."
@@ -106,9 +152,10 @@ function CreditRiskPage() {
 
   const analysisChartData = useMemo(() => {
     if (!result) return [];
-    const scorePercent = Math.round(((calculateCreditScore(result.probability) - 300) / 550) * 100);
+    const score = result.credit_score ?? calculateCreditScore(result.probability);
+    const scorePercent = Math.round(((score - 300) / 550) * 100);
     const riskProb = Math.round(result.probability * 100);
-    const confidence = Math.round(Math.max(result.probability, 1 - result.probability) * 100);
+    const confidence = Math.round((result.confidence ?? Math.max(result.probability, 1 - result.probability)) * 100);
     const duration = Number(formData.duration || 0);
     const savings = Number(formData.saving || 0);
 
@@ -179,12 +226,20 @@ function CreditRiskPage() {
         prediction_result: {
           prediction: result.prediction,
           probability: result.probability,
-          credit_score: calculateCreditScore(result.probability),
+          confidence: result.confidence ?? Math.max(result.probability, 1 - result.probability),
+          credit_score: result.credit_score ?? calculateCreditScore(result.probability),
+          decision: result.decision ?? getLoanDecision(result.credit_score ?? calculateCreditScore(result.probability)),
         },
         user_query: advisorQuery,
         model: advisorModel,
       });
       setAdvisorResponse(response);
+      try {
+        const data = await fetchAdvisorHistory(15);
+        setAdvisorHistory(data.records || []);
+      } catch {
+        // no-op
+      }
       setActiveTab("advisor");
     } catch (err) {
       setAdvisorError(err.message);
@@ -193,7 +248,7 @@ function CreditRiskPage() {
     }
   };
 
-  const score = result ? calculateCreditScore(result.probability) : 0;
+  const score = result ? (result.credit_score ?? calculateCreditScore(result.probability)) : 0;
   const riskLevel = result ? getRiskLevel(score) : "";
   const decision = result ? getLoanDecision(score) : "";
 
@@ -260,6 +315,8 @@ function CreditRiskPage() {
                   loading={advisorLoading}
                   error={advisorError}
                   response={advisorResponse}
+                  healthStatus={healthStatus}
+                  history={advisorHistory}
                 />
               )}
             </section>
