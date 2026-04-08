@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import "./App.css";
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -16,7 +15,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer
 } from "recharts";
 
@@ -33,11 +31,23 @@ const featureFields = [
   { name: "other", label: "Other Feature", description: "0/1", type: "number", range: [0, 1] }
 ];
 
-const modelPerformanceData = [
-  { name: "Random Forest", Accuracy: 100, Precision: 100, Recall: 100, F1: 100, ROC: 100 },
-  { name: "XGBoost", Accuracy: 100, Precision: 100, Recall: 100, F1: 100, ROC: 100 },
-  { name: "Gradient Boost", Accuracy: 100, Precision: 100, Recall: 100, F1: 100, ROC: 100 },
-  { name: "Log. Regression", Accuracy: 100, Precision: 100, Recall: 100, F1: 100, ROC: 100 }
+const keyModules = [
+  {
+    title: "Applicant Data Intake",
+    description: "Structured fields capture demographics, repayment capacity, and loan attributes for consistent scoring."
+  },
+  {
+    title: "ML Risk Prediction Engine",
+    description: "A trained model estimates default probability and assigns low, medium, or high risk."
+  },
+  {
+    title: "Real-Time Decision Layer",
+    description: "Credit score, confidence, and recommendation update automatically when input data changes."
+  },
+  {
+    title: "Explainable Analysis",
+    description: "Human-readable insights summarize the strongest risk drivers for lending teams."
+  }
 ];
 
 const riskDistributionData = [
@@ -62,31 +72,26 @@ const creditAmountDistribution = [
   { range: "$30K+", count: 170 }
 ];
 
-const radarChartData = [
-  { metric: "Accuracy", value: 100 },
-  { metric: "Precision", value: 100 },
-  { metric: "Recall", value: 100 },
-  { metric: "F1-Score", value: 100 },
-  { metric: "ROC-AUC", value: 100 }
-];
-
 const edaInsights = [
   "Low-risk applicants make up the largest share of the dataset, while high-risk applicants remain a smaller but critical segment.",
-  "Majority of borrowers fall in the 26-45 age range, which should be a focus for model calibration.",
-  "Credit amounts cluster below $20K, with fewer applications in the highest loan tiers.",
-  "The dataset appears balanced enough for classification, but edge cases should be reviewed for housing and savings categories."
+  "Most borrowers fall in the 26-45 age range, which should be a focus for model calibration.",
+  "Credit amounts cluster below $20K, with fewer applications in higher loan tiers.",
+  "Edge cases in housing and savings should be monitored for model stability."
 ];
 
 function App() {
   const [formData, setFormData] = useState(
     featureFields.reduce((acc, field) => ({ ...acc, [field.name]: "" }), {})
   );
-
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [autoAnalyzing, setAutoAnalyzing] = useState(false);
   const [error, setError] = useState(null);
   const [chartImages, setChartImages] = useState([]);
   const [activeTab, setActiveTab] = useState("prediction");
+
+  const requestCounterRef = useRef(0);
+  const lastPayloadRef = useRef("");
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
 
   const calculateCreditScore = (probability) => {
@@ -100,8 +105,28 @@ function App() {
   };
 
   const getLoanDecision = (score) => {
-    return score >= 650 ? "Approved ✅" : "Rejected ❌";
+    return score >= 650 ? "Approved" : "Rejected";
   };
+
+  const parsedInput = useMemo(
+    () => featureFields.map((field) => Number(formData[field.name] || 0)),
+    [formData]
+  );
+
+  const isFormComplete = useMemo(
+    () => featureFields.every((field) => formData[field.name] !== ""),
+    [formData]
+  );
+
+  const hasOutOfRangeValue = useMemo(
+    () =>
+      featureFields.some((field) => {
+        if (formData[field.name] === "") return false;
+        const value = Number(formData[field.name]);
+        return Number.isNaN(value) || value < field.range[0] || value > field.range[1];
+      }),
+    [formData]
+  );
 
   const analysisInsights = useMemo(() => {
     if (!result) return [];
@@ -109,7 +134,10 @@ function App() {
     const insights = [];
     const score = calculateCreditScore(result.probability);
     const riskLabel = result.prediction === 1 ? "high risk" : "low risk";
-    const carriesMoreRisk = result.prediction === 1 ? "This profile is likely to be rejected." : "This profile looks favorable for approval.";
+    const carriesMoreRisk =
+      result.prediction === 1
+        ? "This profile is likely to be rejected."
+        : "This profile looks favorable for approval.";
 
     const credit = Number(formData.credit || 0);
     const duration = Number(formData.duration || 0);
@@ -121,33 +149,33 @@ function App() {
     insights.push(`The credit score is ${score}, which places the application in the ${getRiskLevel(score)} category.`);
 
     if (credit > 20000) {
-      insights.push("The requested credit amount is high, which increases risk and may require stronger collateral or documentation.");
+      insights.push("The requested credit amount is high, which can increase risk.");
     } else if (credit > 10000) {
-      insights.push("The credit amount is moderate, so the model is especially sensitive to duration and repayment capacity.");
+      insights.push("The credit amount is moderate, so repayment duration and stability matter more.");
     } else {
-      insights.push("The credit amount is below the dataset average, which generally supports a lower risk prediction.");
+      insights.push("The credit amount is below average, which generally supports a lower risk profile.");
     }
 
     if (duration > 36) {
-      insights.push("A long repayment duration can increase default risk, especially for larger loan amounts.");
+      insights.push("Long repayment duration can increase default risk.");
     } else {
-      insights.push("A shorter loan duration improves repayment confidence for this applicant.");
+      insights.push("Shorter duration improves repayment confidence.");
     }
 
     if (saving <= 1) {
-      insights.push("Low or unknown savings raise risk because there is less financial buffer for repayment.");
+      insights.push("Low or unknown savings reduces repayment buffer.");
     } else {
-      insights.push("Savings are adequate, improving the applicant's ability to handle monthly installments.");
+      insights.push("Savings level supports repayment resilience.");
     }
 
     if (job >= 3) {
-      insights.push("The applicant's job level is strong, which supports a more stable repayment outlook.");
+      insights.push("Higher job level supports income stability.");
     } else if (job <= 1) {
-      insights.push("Lower job skill suggests income may be less stable, raising risk.");
+      insights.push("Lower job skill may indicate unstable income.");
     }
 
     if (housing === 1) {
-      insights.push("Rented housing often correlates with slightly higher risk than ownership.");
+      insights.push("Rented housing can slightly increase risk compared with ownership.");
     }
 
     insights.push(carriesMoreRisk);
@@ -204,10 +232,54 @@ function App() {
     ];
   }, [result, formData]);
 
+  const runPrediction = useCallback(
+    async (inputArray, { showMainLoader }) => {
+      const requestId = requestCounterRef.current + 1;
+      requestCounterRef.current = requestId;
+
+      setError(null);
+      if (showMainLoader) {
+        setLoading(true);
+      } else {
+        setAutoAnalyzing(true);
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/predict`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ input: inputArray })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          setResult(data);
+          setActiveTab("analysis");
+        } else {
+          setError(data.error || `Prediction failed (${response.status}).`);
+        }
+      } catch (err) {
+        setError(`Unable to reach the backend at ${API_BASE_URL}. Make sure the API is running.`);
+        console.error("Prediction fetch error:", err);
+      } finally {
+        if (requestId === requestCounterRef.current) {
+          if (showMainLoader) {
+            setLoading(false);
+          } else {
+            setAutoAnalyzing(false);
+          }
+        }
+      }
+    },
+    [API_BASE_URL]
+  );
+
   useEffect(() => {
     const fetchChartImages = async () => {
       try {
-        const response = await fetch("/charts");
+        const response = await fetch(`${API_BASE_URL}/charts`);
         const data = await response.json();
         if (data.images) {
           setChartImages(data.images);
@@ -218,10 +290,29 @@ function App() {
     };
 
     fetchChartImages();
-  }, []);
+  }, [API_BASE_URL]);
+
+  useEffect(() => {
+    if (!isFormComplete || hasOutOfRangeValue || loading) {
+      return undefined;
+    }
+
+    const payload = JSON.stringify(parsedInput);
+    if (payload === lastPayloadRef.current) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      lastPayloadRef.current = payload;
+      runPrediction(parsedInput, { showMainLoader: false });
+    }, 550);
+
+    return () => clearTimeout(timer);
+  }, [isFormComplete, hasOutOfRangeValue, loading, parsedInput, runPrediction]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
+    setError(null);
     setFormData((prevState) => ({
       ...prevState,
       [name]: value
@@ -230,53 +321,44 @@ function App() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setError(null);
-    setResult(null);
-    setLoading(true);
 
-    const inputArray = featureFields.map((field) => Number(formData[field.name] || 0));
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/predict`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ input: inputArray })
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setResult(data);
-        setActiveTab("analysis");
-      } else {
-        setError(data.error || `Prediction failed (${response.status}).`);
-      }
-    } catch (err) {
-      setError(`Unable to reach the backend at ${API_BASE_URL}. Make sure the API is running.`);
-      console.error("Prediction fetch error:", err);
-    } finally {
-      setLoading(false);
+    if (!isFormComplete || hasOutOfRangeValue) {
+      setError("Please fill all fields with valid values before analyzing.");
+      return;
     }
+
+    lastPayloadRef.current = JSON.stringify(parsedInput);
+    await runPrediction(parsedInput, { showMainLoader: true });
   };
 
   const score = result ? calculateCreditScore(result.probability) : 0;
   const riskLevel = result ? getRiskLevel(score) : "";
-  const decision = result ? getLoanDecision(score) : ""; 
+  const decision = result ? getLoanDecision(score) : "";
 
   return (
     <div className="app-shell">
       <header className="hero-banner">
         <div>
-          <h1>💳 CredLens</h1>
-          <p>Advanced Credit Risk Assessment Platform with Real-time Predictions & Analytics</p>
+          <h1>CredLens</h1>
+          <p>Advanced credit risk assessment platform with real-time predictions and analytics.</p>
         </div>
       </header>
 
       <main className="page-content">
-        {/* INPUT FORM CARD */}
+        <section className="card key-features-card">
+          <h2>Key Features / Modules</h2>
+          <div className="feature-grid">
+            {keyModules.map((module) => (
+              <article key={module.title} className="feature-card">
+                <h3>{module.title}</h3>
+                <p>{module.description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="card card-form">
-          <h2>📋 Applicant Information</h2>
+          <h2>Applicant Information</h2>
           <form onSubmit={handleSubmit} className="form-grid">
             {featureFields.map((field) => (
               <label key={field.name} className="field-group">
@@ -289,7 +371,7 @@ function App() {
                   name={field.name}
                   value={formData[field.name]}
                   onChange={handleChange}
-                  placeholder={`${field.label}`}
+                  placeholder={field.label}
                   min={field.range[0]}
                   max={field.range[1]}
                   required
@@ -298,25 +380,29 @@ function App() {
             ))}
 
             <button className="primary-button" type="submit" disabled={loading}>
-              {loading ? "⏳ Analyzing..." : "🔍 Predict Risk"}
+              {loading ? "Analyzing..." : "Predict Risk"}
             </button>
           </form>
 
-          {error && <div className="alert error-alert">❌ {error}</div>}
+          <p className="auto-analysis-status">
+            {isFormComplete
+              ? autoAnalyzing
+                ? "Updating live analysis from current input..."
+                : "Live analysis enabled. Editing any field refreshes results automatically."
+              : "Fill all input fields to trigger live analysis."}
+          </p>
+
+          {error && <div className="alert error-alert">{error}</div>}
         </section>
 
-        {/* RESULTS & TABS */}
         {result && (
           <>
-            {/* METRICS SECTION */}
             <section className="card metrics-card">
-              <h2>📊 Risk Assessment Results</h2>
+              <h2>Risk Assessment Results</h2>
               <div className="metrics-grid">
                 <div className={`metric-box ${result.prediction === 1 ? "high-risk" : "low-risk"}`}>
                   <div className="metric-label">Risk Classification</div>
-                  <div className="metric-value">
-                    {result.prediction === 1 ? "⚠️ HIGH RISK" : "✅ LOW RISK"}
-                  </div>
+                  <div className="metric-value">{result.prediction === 1 ? "HIGH RISK" : "LOW RISK"}</div>
                 </div>
 
                 <div className="metric-box">
@@ -346,30 +432,31 @@ function App() {
               </div>
             </section>
 
-            {/* TABS FOR CHARTS */}
             <section className="card tabs-card">
               <div className="tab-buttons">
                 <button
+                  type="button"
                   className={`tab-btn ${activeTab === "prediction" ? "active" : ""}`}
                   onClick={() => setActiveTab("prediction")}
                 >
-                  📊 Prediction
+                  Prediction
                 </button>
                 <button
+                  type="button"
                   className={`tab-btn ${activeTab === "analysis" ? "active" : ""}`}
                   onClick={() => setActiveTab("analysis")}
                 >
-                  📈 Analysis
+                  Analysis
                 </button>
                 <button
+                  type="button"
                   className={`tab-btn ${activeTab === "eda" ? "active" : ""}`}
                   onClick={() => setActiveTab("eda")}
                 >
-                  📊 EDA
+                  EDA
                 </button>
               </div>
 
-              {/* PREDICTION TAB */}
               {activeTab === "prediction" && (
                 <div className="tab-content">
                   <div className="chart-card">
@@ -383,7 +470,6 @@ function App() {
                           labelLine={false}
                           label={({ name, value }) => `${name}: ${value}%`}
                           outerRadius={100}
-                          fill="#8884d8"
                           dataKey="value"
                         >
                           {predictionChartData.map((entry, index) => (
@@ -398,19 +484,12 @@ function App() {
                   <div className="chart-card">
                     <h3>Prediction Confidence</h3>
                     <ResponsiveContainer width="100%" height={280}>
-                      <BarChart
-                        data={predictionChartData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                      >
+                      <BarChart data={predictionChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis domain={[0, 100]} />
                         <Tooltip formatter={(value) => `${value}%`} />
-                        <Bar
-                          dataKey="value"
-                          fill={result.prediction === 1 ? "#f44336" : "#4caf50"}
-                          radius={[8, 8, 0, 0]}
-                        />
+                        <Bar dataKey="value" fill={result.prediction === 1 ? "#f44336" : "#4caf50"} radius={[8, 8, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -418,10 +497,7 @@ function App() {
                   <div className="chart-card">
                     <h3>Applicant Input Profile</h3>
                     <ResponsiveContainer width="100%" height={300}>
-                      <BarChart
-                        data={inputProfileData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                      >
+                      <BarChart data={inputProfileData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis />
@@ -437,16 +513,12 @@ function App() {
                 </div>
               )}
 
-              {/* ANALYSIS TAB */}
               {activeTab === "analysis" && (
                 <div className="tab-content">
                   <div className="chart-card">
                     <h3>Prediction Analysis Overview</h3>
                     <ResponsiveContainer width="100%" height={350}>
-                      <BarChart
-                        data={analysisChartData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                      >
+                      <BarChart data={analysisChartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="metric" angle={-45} textAnchor="end" height={100} />
                         <YAxis domain={[0, 100]} />
@@ -482,10 +554,7 @@ function App() {
                   <div className="chart-card">
                     <h3>Applicant Input Breakdown</h3>
                     <ResponsiveContainer width="100%" height={300}>
-                      <BarChart
-                        data={inputProfileData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                      >
+                      <BarChart data={inputProfileData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis />
@@ -502,9 +571,7 @@ function App() {
                   <div className="analysis-summary">
                     <h3>Key Analysis Insights</h3>
                     <ul>
-                      {result.analysis ? result.analysis.map((insight, index) => (
-                        <li key={index}>{insight}</li>
-                      )) : analysisInsights.map((insight, index) => (
+                      {(result.analysis || analysisInsights).map((insight, index) => (
                         <li key={index}>{insight}</li>
                       ))}
                     </ul>
@@ -512,7 +579,6 @@ function App() {
                 </div>
               )}
 
-              {/* EDA TAB */}
               {activeTab === "eda" && (
                 <div className="tab-content">
                   <div className="chart-card">
@@ -526,7 +592,6 @@ function App() {
                           labelLine={false}
                           label={({ name, value }) => `${name}: ${value}%`}
                           outerRadius={100}
-                          fill="#8884d8"
                           dataKey="value"
                         >
                           {riskDistributionData.map((entry, index) => (
@@ -598,7 +663,7 @@ function App() {
                       <div className="gallery-grid">
                         {chartImages.map((filename) => (
                           <div key={filename} className="gallery-item">
-                            <img alt={filename} src={`/chart/${filename}`} />
+                            <img alt={filename} src={`${API_BASE_URL}/chart/${filename}`} />
                             <div>{filename.replace(/_/g, " ")}</div>
                           </div>
                         ))}
@@ -612,9 +677,8 @@ function App() {
         )}
       </main>
 
-      {/* FOOTER */}
       <footer className="app-footer">
-        <p>&copy; 2024 CredLens - Advanced Credit Risk Assessment | Powered by Machine Learning</p>
+        <p>&copy; 2026 CredLens - Advanced Credit Risk Assessment | Powered by Machine Learning</p>
       </footer>
     </div>
   );
