@@ -1,3 +1,10 @@
+
+flask>=3.0.0
+flask-cors>=4.0.0
+joblib>=1.3.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+=======
 # CredLens - Backend Dependencies
 
 # Core API Framework
@@ -21,3 +28,4 @@ Werkzeug==3.0.0
 # Optional: For advanced features
 scipy==1.11.2
 matplotlib==3.8.0
+
