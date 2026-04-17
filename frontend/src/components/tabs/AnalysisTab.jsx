@@ -15,7 +15,6 @@ import {
   YAxis,
 } from "recharts";
 
-
 function AnalysisTab({ analysisChartData, inputProfileData, result, analysisInsights }) {
   return (
     <div className="tab-content">
