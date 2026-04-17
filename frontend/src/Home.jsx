@@ -12,21 +12,6 @@ function Home() {
       <div className="ambient-orb orb-two" aria-hidden="true" />
       <div className="ambient-orb orb-three" aria-hidden="true" />
 
-      <header className="app-topbar">
-        <div className="brand">
-          <span className="brand-dot" />
-          <div>
-            <strong>CredLens Sentinel</strong>
-            <small>Financial Threat Monitoring</small>
-          </div>
-        </div>
-        <div className="topbar-pills">
-          <span>Model Uptime 99.7%</span>
-          <span>24h Alerts 19</span>
-          <span>Latency 2.3 min</span>
-        </div>
-      </header>
-
       <main className="home-hero">
         <section className="home-copy">
           <span className="home-kicker">Fraud Intelligence Platform</span>
