@@ -9,15 +9,23 @@ const buildHeaders = () => {
   return headers;
 };
 
-export const fetchPrediction = async (inputArray) => {
-  const response = await fetch(`${API_BASE_URL}/predict`, {
+export const analyzeDataset = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const headers = {};
+  if (API_KEY) {
+    headers["x-api-key"] = API_KEY;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/analyze-dataset`, {
     method: "POST",
-    headers: buildHeaders(),
-    body: JSON.stringify({ input: inputArray }),
+    headers,
+    body: formData,
   });
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error || data.detail || `Prediction failed (${response.status}).`);
+    throw new Error(data.error || data.detail || "Dataset analysis failed.");
   }
   return data;
 };

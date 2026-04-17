@@ -20,22 +20,28 @@ class AdvisorService:
     def build_rule_based_suggestion(applicant, prediction_result, user_query):
         probability = float(prediction_result.get("probability", 0.0))
         confidence = float(prediction_result.get("confidence", max(probability, 1 - probability)))
-        credit_score = int(min(850, max(300, round(850 - probability * 550))))
+        credit_score = int(applicant.get("credit_score", min(850, max(300, round(850 - probability * 550)))))
         policy = evaluate_policy(applicant, probability, confidence)
 
         risks = []
         mitigations = []
-        if applicant.get("credit", 0) > 20000:
-            risks.append("Requested credit amount is high.")
+        loan_amount = float(applicant.get("loan_amount", applicant.get("credit", 0)))
+        debt_to_income = float(applicant.get("debt_to_income", 0))
+        employment_years = float(applicant.get("employment_years", 0))
+        if loan_amount > 20000:
+            risks.append("Requested loan amount is high.")
             mitigations.append("Ask for collateral or reduce sanctioned amount.")
-        if applicant.get("duration", 0) > 36:
-            risks.append("Long repayment duration increases uncertainty.")
-            mitigations.append("Prefer shorter tenure or tighter repayment schedule.")
-        if applicant.get("saving", 0) <= 1:
-            risks.append("Low savings indicate limited repayment buffer.")
-            mitigations.append("Request reserve proof and stable income documents.")
+        if debt_to_income > 0.45:
+            risks.append("Debt-to-income ratio is elevated.")
+            mitigations.append("Reduce exposure or verify higher disposable income.")
+        if employment_years < 2:
+            risks.append("Employment history is short.")
+            mitigations.append("Request salary slips, bank statements, and continuity checks.")
+        if applicant.get("credit_score", 700) < 580:
+            risks.append("Credit score is below preferred policy range.")
+            mitigations.append("Move to manual review or require stronger collateral support.")
         if not risks:
-            risks.append("No strong adverse flags from fallback rules.")
+            risks.append("No strong adverse flags from the fallback policy review.")
             mitigations.append("Proceed with standard KYC and monitoring.")
 
         return {

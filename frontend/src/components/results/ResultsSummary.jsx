@@ -1,64 +1,88 @@
 import React from "react";
 
 
-function ResultsSummary({ result, score, riskLevel, decision }) {
-  const finalDecision = result.decision || decision;
-  const confidence = result.confidence ?? Math.max(result.probability, 1 - result.probability);
+function ResultsSummary({ summary, portfolioInsights }) {
   return (
-    <section className="card metrics-card">
-      <h2>Risk Assessment Results</h2>
-      <div className="metrics-grid">
-        <div className={`metric-box ${result.prediction === 1 ? "high-risk" : "low-risk"}`}>
-          <div className="metric-label">Risk Classification</div>
-          <div className="metric-value">
-            {result.prediction === 1 ? "HIGH RISK" : "LOW RISK"}
-          </div>
+    <section className="results-shell">
+      <div className="card summary-hero">
+        <div>
+          <span className="eyebrow">Portfolio Snapshot</span>
+          <h2>Professional credit-risk scoring for digital lending operations</h2>
+          <p>
+            CredLens has converted the uploaded dataset into an underwriting view with approval mix,
+            exposure overview, and applicant-level explainability.
+          </p>
         </div>
 
-        <div className="metric-box">
-          <div className="metric-label">Risk Probability</div>
-          <div className="metric-value">{(result.probability * 100).toFixed(1)}%</div>
-        </div>
-
-        <div className="metric-box">
-          <div className="metric-label">Credit Score</div>
-          <div className="metric-value">{score}</div>
-        </div>
-
-        <div className="metric-box">
-          <div className="metric-label">Risk Level</div>
-          <div className="metric-value">{riskLevel}</div>
-        </div>
-
-        <div className={`metric-box ${String(finalDecision).toLowerCase().includes("approve") ? "approved" : "rejected"}`}>
-          <div className="metric-label">Loan Decision</div>
-          <div className="metric-value">{finalDecision}</div>
-        </div>
-
-        <div className="metric-box">
-          <div className="metric-label">Confidence</div>
-          <div className="metric-value">
-            {(confidence * 100).toFixed(1)}%
-          </div>
+        <div className="summary-hero__focus">
+          <span>Dataset Overview</span>
+          <strong>{summary.total_applicants.toLocaleString()}</strong>
+          <p>
+            Applicants analyzed across the uploaded dataset with {summary.approval_rate}% approval readiness.
+          </p>
         </div>
       </div>
 
-      {Array.isArray(result.policy_reasons) && result.policy_reasons.length > 0 && (
-        <div className="analysis-summary">
-          <h3>Policy Reasons</h3>
-          <ul>
-            {result.policy_reasons.map((item, idx) => (
-              <li key={`policy-reason-${idx}`}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <div className="summary-grid">
+        <article className="card metric-card">
+          <span>Approval Rate</span>
+          <strong>{summary.approval_rate}%</strong>
+          <p>Direct plus conditional approvals across the uploaded dataset.</p>
+        </article>
 
-      {result.model_metadata && (
-        <div className="advisor-meta" style={{ marginTop: "0.8rem" }}>
-          Model: {result.model_metadata.model_name} | Version: {result.model_metadata.model_version} | Trained: {String(result.model_metadata.trained_at_utc || "unknown")}
+        <article className="card metric-card">
+          <span>High-Risk Share</span>
+          <strong>{summary.high_risk_share}%</strong>
+          <p>Applicants at or above the elevated risk threshold.</p>
+        </article>
+
+        <article className="card metric-card">
+          <span>Average Score</span>
+          <strong>{summary.average_credit_score}</strong>
+          <p>Average bureau-style credit score across all valid records.</p>
+        </article>
+
+        <article className="card metric-card">
+          <span>Total Exposure</span>
+          <strong>{summary.total_credit_exposure.toLocaleString()}</strong>
+          <p>Total requested credit amount represented in the analyzed portfolio.</p>
+        </article>
+      </div>
+
+      <div className="summary-grid">
+        <article className="card metric-card">
+          <span>Model</span>
+          <strong>{summary.model_name}</strong>
+          <p>Scoring engine used for the uploaded dataset analysis.</p>
+        </article>
+
+        <article className="card metric-card">
+          <span>Actual Default Rate</span>
+          <strong>{summary.actual_default_rate ?? "N/A"}{summary.actual_default_rate != null ? "%" : ""}</strong>
+          <p>Reported from the uploaded target column when it is present.</p>
+        </article>
+      </div>
+
+      <div className="card insight-panel">
+        <div className="insight-panel__header">
+          <div>
+            <span className="eyebrow">Executive Readout</span>
+            <h3>What the portfolio is telling us</h3>
+          </div>
+        <div className="insight-panel__decision">
+            <span>Approve</span>
+            <strong>{summary.approve_count}</strong>
+            <span>Rejected</span>
+            <strong>{summary.rejected_count || 0}</strong>
+          </div>
         </div>
-      )}
+
+        <ul className="insight-list">
+          {portfolioInsights.map((item, index) => (
+            <li key={`portfolio-insight-${index}`}>{item}</li>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }

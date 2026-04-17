@@ -31,6 +31,25 @@ def test_predict_success_shape():
         assert key in data
 
 
+def test_dataset_analysis_endpoint():
+    csv_bytes = b"""age,income,employment_years,loan_amount,credit_score,debt_to_income,num_credit_lines,home_ownership,purpose,target
+59,57544.76,0,20326.16,342,0.4104,9,OWN,debt_consolidation,1
+49,55681.03,4,28988.31,816,0.7963,1,OWN,business,0
+35,56580.57,10,18894.62,365,0.6912,1,RENT,personal,1
+63,96604.76,9,19112.47,695,0.2479,11,OWN,debt_consolidation,0
+"""
+    response = client.post(
+        "/analyze-dataset",
+        files={"file": ("loan_default_dataset.csv", csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "summary" in data
+    assert "applicants" in data
+    assert data["summary"]["total_applicants"] > 0
+    assert len(data["applicants"]) > 0
+
+
 def test_advisor_validation_error():
     response = client.post("/loan-advisor", json={"applicant_data": {}, "prediction_result": {}})
     assert response.status_code == 400

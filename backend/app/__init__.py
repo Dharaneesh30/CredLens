@@ -5,6 +5,7 @@ import time
 
 from .routes.advisor import advisor_router
 from .routes.charts import charts_router
+from .routes.dataset import dataset_router
 from .routes.health import health_router
 from .routes.prediction import prediction_router
 from .services.metrics_service import metrics_service
@@ -24,6 +25,7 @@ def create_app():
 
     app.include_router(health_router)
     app.include_router(prediction_router)
+    app.include_router(dataset_router)
     app.include_router(charts_router)
     app.include_router(advisor_router)
 
